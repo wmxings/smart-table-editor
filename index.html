@@ -78,11 +78,17 @@
             border-collapse: collapse;
             width: 100%;
         }
-        th, td {
+        td, th {
+            padding: 4px 8px;
             border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-            min-width: 80px;
+            min-width: 100px;
+            height: 32px;
+            line-height: 20px;
+            font-size: 14px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            vertical-align: middle;
+            white-space: pre-wrap;
+            position: relative;
         }
         th {
             background-color: var(--theme-color);
@@ -95,6 +101,18 @@
         }
         tr:nth-child(odd) {
             background-color: white;
+        }
+        td:empty::before {
+            content: '';
+            display: inline-block;
+            height: 20px;
+            vertical-align: middle;
+        }
+        td:focus {
+            outline: none;
+            display: flex;
+            align-items: center;
+            min-height: 20px;
         }
         td[contenteditable="true"]:focus {
             outline: none;
@@ -161,7 +179,7 @@
                 <button onclick="moveRow('down')">⬇️ 下移该行 (Alt+↓)</button>
                 <button onclick="moveColumn('left')">⬅️ 左移该列 (Alt+←)</button>
                 <button onclick="moveColumn('right')">➡️ 右移该列 (Alt+→)</button>
-                <button onclick="deleteSelectedRows()">❌️ 删除所选行 (Backspace)</button>
+                <button onclick="deleteSelectedRows()">❌️ 删除所选行</button>
                 <button onclick="deleteSelectedColumns()">❌️ 删除所选列 (Delete)</button>
                 <button onclick="undo()">↩️ 撤销 (Ctrl+Z)</button>
                 <button onclick="redo()">↪️ 还原 (Ctrl+Y)</button>
@@ -871,10 +889,6 @@
             // 删除行/列的快捷键
             else {
                 switch (e.key) {
-                    case 'Backspace':
-                        e.preventDefault();
-                        deleteSelectedRows();
-                        break;
                     case 'Delete':
                         e.preventDefault();
                         deleteSelectedColumns();
