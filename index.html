@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Table Editor</title>
+    <style>
+        :root {
+            --theme-color: #4a90e2;
+        }
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            display: flex;
+            gap: 20px;
+        }
+        .left-panel {
+            width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .theme-section {
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .theme-title {
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        .theme-colors {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .color-circle {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        .color-circle.active {
+            border-color: #000;
+        }
+        .button-section {
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .button-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        button {
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            background-color: #f0f0f0;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            width: 100%;
+            text-align: left;
+        }
+        button:hover {
+            background-color: #e0e0e0;
+        }
+        .table-container {
+            flex: 1;
+            overflow: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            min-width: 80px;
+        }
+        th {
+            background-color: var(--theme-color);
+            color: white;
+            font-weight: bold;
+            text-align: center;
+        }
+        tr:nth-child(even) {
+            background-color: var(--theme-row-color, #e3f2fd);
+        }
+        tr:nth-child(odd) {
+            background-color: white;
+        }
+        td[contenteditable="true"]:focus {
+            outline: none;
+        }
+        td[contenteditable="true"]:not(.selected) {
+            outline: none;
+        }
+        th[contenteditable="true"]:focus {
+            outline: none;
+        }
+        th[contenteditable="true"]:not(.selected) {
+            outline: none;
+        }
+        th.selected {
+            outline: none !important;
+        }
+        td.selected {
+            outline: 2px solid var(--theme-color);
+        }
+        td[contenteditable="true"]:focus.selected {
+            outline: 2px solid var(--theme-color);
+        }
+        .load-section {
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .load-section textarea {
+            width: 100%;
+            height: 100px;
+            margin-bottom: 10px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+        }
+    </style>
+</head>
+<body>
+    <div class="left-panel">
+        <div class="theme-section">
+            <div class="theme-colors">
+                <div class="color-circle active" style="background-color: #4a90e2;" data-theme="blue"></div>
+                <div class="color-circle" style="background-color: #00bcd4;" data-theme="cyan"></div>
+                <div class="color-circle" style="background-color: #009688;" data-theme="teal"></div>
+                <div class="color-circle" style="background-color: #50c878;" data-theme="green"></div>
+                <div class="color-circle" style="background-color: #3f51b5;" data-theme="indigo"></div>
+                <div class="color-circle" style="background-color: #673ab7;" data-theme="deepPurple"></div>
+                <div class="color-circle" style="background-color: #9b59b6;" data-theme="purple"></div>
+                <div class="color-circle" style="background-color: #e91e63;" data-theme="pink"></div>
+                <div class="color-circle" style="background-color: #ff6b6b;" data-theme="red"></div>
+                <div class="color-circle" style="background-color: #f39c12;" data-theme="orange"></div>
+                <div class="color-circle" style="background-color: #795548;" data-theme="brown"></div>
+                <div class="color-circle" style="background-color: #607d8b;" data-theme="gray"></div>
+            </div>
+        </div>
+        <div class="button-section">
+            <div class="button-grid">
+                <button onclick="insertRow('up')">⬆️ 往上插行 (Shift+↑)</button>
+                <button onclick="insertRow('down')">⬇️ 往下插行 (Shift+↓)</button>
+                <button onclick="insertColumn('left')">⬅️ 往左插列 (Shift+←)</button>
+                <button onclick="insertColumn('right')">➡️ 往右插列 (Shift+→)</button>
+                <button onclick="moveRow('up')">⬆️ 上移该行 (Alt+↑)</button>
+                <button onclick="moveRow('down')">⬇️ 下移该行 (Alt+↓)</button>
+                <button onclick="moveColumn('left')">⬅️ 左移该列 (Alt+←)</button>
+                <button onclick="moveColumn('right')">➡️ 右移该列 (Alt+→)</button>
+                <button onclick="deleteSelectedRows()">❌️ 删除所选行 (Backspace)</button>
+                <button onclick="deleteSelectedColumns()">❌️ 删除所选列 (Delete)</button>
+                <button onclick="undo()">↩️ 撤销 (Ctrl+Z)</button>
+                <button onclick="redo()">↪️ 还原 (Ctrl+Y)</button>
+                <button onclick="saveTable()">💾 保存 (Ctrl+S)</button>
+            </div>
+        </div>
+        <div class="load-section">
+            <textarea id="tableContent" placeholder="在此粘贴table.txt的内容..."></textarea>
+            <button onclick="loadTableFromText()">📂 载入表格</button>
+        </div>
+    </div>
+    <div class="table-container">
+        <table id="mainTable">
+            <thead>
+                <tr>
+                    <th contenteditable="true">列1</th>
+                    <th contenteditable="true">列2</th>
+                    <th contenteditable="true">列3</th>
+                    <th contenteditable="true">列4</th>
+                    <th contenteditable="true">列5</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td contenteditable="true"></td>
+                    <td contenteditable="true"></td>
+                    <td contenteditable="true"></td>
+                    <td contenteditable="true"></td>
+                    <td contenteditable="true"></td>
+                </tr>
+                <tr>
+                    <td contenteditable="true"></td>
+                    <td contenteditable="true"></td>
+                    <td contenteditable="true"></td>
+                    <td contenteditable="true"></td>
+                    <td contenteditable="true"></td>
+                </tr>
+                <tr>
+                    <td contenteditable="true"></td>
+                    <td contenteditable="true"></td>
+                    <td contenteditable="true"></td>
+                    <td contenteditable="true"></td>
+                    <td contenteditable="true"></td>
+                </tr>
+                <tr>
+                    <td contenteditable="true"></td>
+                    <td contenteditable="true"></td>
+                    <td contenteditable="true"></td>
+                    <td contenteditable="true"></td>
+                    <td contenteditable="true"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        let undoStack = [];
+        let redoStack = [];
+        let selectedCells = new Set();
+        let isSelecting = false;
+        let startCell = null;
+        let currentTheme = 'blue';
+
+        // 初始化主题
+        updateTheme();
+
+        // 主题切换
+        document.querySelectorAll('.color-circle').forEach(circle => {
+            circle.addEventListener('click', () => {
+                document.querySelectorAll('.color-circle').forEach(c => c.classList.remove('active'));
+                circle.classList.add('active');
+                currentTheme = circle.dataset.theme;
+                updateTheme();
+            });
+        });
+
+        // 更新主题
+        function updateTheme() {
+            const colors = {
+                blue: { header: '#4a90e2', row: '#e3f2fd' },
+                cyan: { header: '#00bcd4', row: '#e0f7fa' },
+                teal: { header: '#009688', row: '#e0f2f1' },
+                green: { header: '#50c878', row: '#e8f5e9' },
+                indigo: { header: '#3f51b5', row: '#e8eaf6' },
+                deepPurple: { header: '#673ab7', row: '#ede7f6' },
+                purple: { header: '#9b59b6', row: '#f3e5f5' },
+                pink: { header: '#e91e63', row: '#fce4ec' },
+                red: { header: '#ff6b6b', row: '#ffebee' },
+                orange: { header: '#f39c12', row: '#fff3e0' },
+                brown: { header: '#795548', row: '#efebe9' },
+                gray: { header: '#607d8b', row: '#eceff1' }
+            };
+
+            // 保存当前选中的单元格
+            const selectedCellIndices = Array.from(selectedCells).map(cell => {
+                const row = cell.parentElement;
+                const rowIndex = row.rowIndex;
+                const colIndex = Array.from(row.children).indexOf(cell);
+                return { rowIndex, colIndex };
+            });
+
+            document.documentElement.style.setProperty('--theme-color', colors[currentTheme].header);
+            document.documentElement.style.setProperty('--theme-row-color', colors[currentTheme].row);
+
+            const tbody = document.querySelector('tbody');
+            const rows = tbody.getElementsByTagName('tr');
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                row.style.backgroundColor = i % 2 === 0 ? 'white' : colors[currentTheme].row;
+            }
+
+            // 恢复选中的单元格
+            selectedCells.clear();
+            selectedCellIndices.forEach(({ rowIndex, colIndex }) => {
+                const row = rows[rowIndex - 1]; // 减去1来调整表头的影响
+                if (row && row.children[colIndex]) {
+                    const cell = row.children[colIndex];
+                    cell.classList.add('selected');
+                    selectedCells.add(cell);
+                }
+            });
+        }
+
+        // 单元格选择
+        document.querySelectorAll('td, th').forEach(cell => {
+            cell.addEventListener('mousedown', (e) => {
+                isSelecting = true;
+                startCell = cell;
+                // 清除所有单元格的选中状态
+                document.querySelectorAll('.selected').forEach(c => c.classList.remove('selected'));
+                selectedCells.clear();
+                if (cell.tagName === 'TD') {
+                    cell.classList.add('selected');
+                    cell.focus();
+                }
+                selectedCells.add(cell);
+            });
+
+            cell.addEventListener('mouseover', (e) => {
+                if (isSelecting && startCell) {
+                    const table = document.getElementById('mainTable');
+                    const rows = table.getElementsByTagName('tr');
+                    const startRow = startCell.parentElement.rowIndex;
+                    const startCol = Array.from(startCell.parentElement.children).indexOf(startCell);
+                    const currentRow = cell.parentElement.rowIndex;
+                    const currentCol = Array.from(cell.parentElement.children).indexOf(cell);
+
+                    const minRow = Math.min(startRow, currentRow);
+                    const maxRow = Math.max(startRow, currentRow);
+                    const minCol = Math.min(startCol, currentCol);
+                    const maxCol = Math.max(startCol, currentCol);
+
+                    // 清除所有单元格的选中状态
+                    document.querySelectorAll('.selected').forEach(c => c.classList.remove('selected'));
+                    selectedCells.clear();
+                    for (let i = minRow; i <= maxRow; i++) {
+                        for (let j = minCol; j <= maxCol; j++) {
+                            const selectedCell = rows[i].children[j];
+                            if (selectedCell.tagName === 'TD') {
+                                selectedCell.classList.add('selected');
+                                if (i === currentRow && j === currentCol) {
+                                    selectedCell.focus();
+                                }
+                            }
+                            selectedCells.add(selectedCell);
+                        }
+                    }
+                }
+            });
+
+            // 添加失去焦点事件监听
+            cell.addEventListener('blur', (e) => {
+                if (!selectedCells.has(cell)) {
+                    cell.classList.remove('selected');
+                }
+            });
+        });
+
+        document.addEventListener('mouseup', () => {
+            isSelecting = false;
+            startCell = null;
+        });
+
+        // 保存表格状态
+        function saveTableState() {
+            const table = document.getElementById('mainTable');
+            undoStack.push(table.innerHTML);
+            redoStack = [];
+        }
+
+        // 撤销
+        function undo() {
+            if (undoStack.length > 0) {
+                const table = document.getElementById('mainTable');
+                redoStack.push(table.innerHTML);
+                table.innerHTML = undoStack.pop();
+                updateTableListeners();
+                updateTheme();
+            }
+        }
+
+        // 还原
+        function redo() {
+            if (redoStack.length > 0) {
+                const table = document.getElementById('mainTable');
+                undoStack.push(table.innerHTML);
+                table.innerHTML = redoStack.pop();
+                updateTableListeners();
+                updateTheme();
+            }
+        }
+
+        // 更新表格监听器
+        function updateTableListeners() {
+            document.querySelectorAll('td, th').forEach(cell => {
+                cell.addEventListener('mousedown', (e) => {
+                    isSelecting = true;
+                    startCell = cell;
+                    // 清除所有单元格的选中状态
+                    document.querySelectorAll('.selected').forEach(c => c.classList.remove('selected'));
+                    selectedCells.clear();
+                    if (cell.tagName === 'TD') {
+                        cell.classList.add('selected');
+                        cell.focus();
+                    }
+                    selectedCells.add(cell);
+                });
+
+                cell.addEventListener('mouseover', (e) => {
+                    if (isSelecting && startCell) {
+                        const table = document.getElementById('mainTable');
+                        const rows = table.getElementsByTagName('tr');
+                        const startRow = startCell.parentElement.rowIndex;
+                        const startCol = Array.from(startCell.parentElement.children).indexOf(startCell);
+                        const currentRow = cell.parentElement.rowIndex;
+                        const currentCol = Array.from(cell.parentElement.children).indexOf(cell);
+
+                        const minRow = Math.min(startRow, currentRow);
+                        const maxRow = Math.max(startRow, currentRow);
+                        const minCol = Math.min(startCol, currentCol);
+                        const maxCol = Math.max(startCol, currentCol);
+
+                        // 清除所有单元格的选中状态
+                        document.querySelectorAll('.selected').forEach(c => c.classList.remove('selected'));
+                        selectedCells.clear();
+                        for (let i = minRow; i <= maxRow; i++) {
+                            for (let j = minCol; j <= maxCol; j++) {
+                                const selectedCell = rows[i].children[j];
+                                if (selectedCell.tagName === 'TD') {
+                                    selectedCell.classList.add('selected');
+                                    if (i === currentRow && j === currentCol) {
+                                        selectedCell.focus();
+                                    }
+                                }
+                                selectedCells.add(selectedCell);
+                            }
+                        }
+                    }
+                });
+
+                // 添加失去焦点事件监听
+                cell.addEventListener('blur', (e) => {
+                    if (!selectedCells.has(cell)) {
+                        cell.classList.remove('selected');
+                    }
+                });
+            });
+        }
+
+        // 插入行
+        function insertRow(direction) {
+            if (selectedCells.size === 0) return;
+            
+            saveTableState();
+            const table = document.getElementById('mainTable');
+            const tbody = table.getElementsByTagName('tbody')[0];
+            const rows = tbody.getElementsByTagName('tr');
+            
+            // 保存当前选中的单元格位置
+            const selectedCellIndices = Array.from(selectedCells).map(cell => {
+                const row = cell.parentElement;
+                const rowIndex = row.rowIndex;
+                const colIndex = Array.from(row.children).indexOf(cell);
+                return { rowIndex, colIndex };
+            });
+
+            // 获取选中的行索引（需要减去1来调整表头的影响）
+            const selectedRows = new Set();
+            selectedCells.forEach(cell => {
+                if (cell.tagName === 'TD') {
+                    selectedRows.add(cell.parentElement.rowIndex - 1);
+                }
+            });
+
+            if (selectedRows.size === 0) return;
+
+            const newRow = document.createElement('tr');
+            const colCount = rows[0].children.length;
+            
+            for (let i = 0; i < colCount; i++) {
+                const td = document.createElement('td');
+                td.contentEditable = true;
+                newRow.appendChild(td);
+            }
+
+            // 清除所有单元格的选中状态
+            document.querySelectorAll('.selected').forEach(c => c.classList.remove('selected'));
+            selectedCells.clear();
+
+            if (direction === 'up') {
+                const minRow = Math.min(...selectedRows);
+                tbody.insertBefore(newRow, tbody.children[minRow]);
+            } else {
+                const maxRow = Math.max(...selectedRows);
+                tbody.insertBefore(newRow, tbody.children[maxRow + 1]);
+            }
+
+            // 将焦点移动到新插入行的对应列位置
+            if (selectedCellIndices.length > 0) {
+                const { colIndex } = selectedCellIndices[0];
+                const targetCell = newRow.children[colIndex];
+                if (targetCell) {
+                    targetCell.classList.add('selected');
+                    selectedCells.add(targetCell);
+                    targetCell.focus();
+                }
+            }
+
+            updateTableListeners();
+            updateTheme();
+        }
+
+        // 插入列
+        function insertColumn(direction) {
+            if (selectedCells.size === 0) return;
+            
+            saveTableState();
+            const table = document.getElementById('mainTable');
+            const rows = table.getElementsByTagName('tr');
+            
+            // 保存当前选中的单元格位置
+            const selectedCellIndices = Array.from(selectedCells).map(cell => {
+                const row = cell.parentElement;
+                const rowIndex = row.rowIndex;
+                const colIndex = Array.from(row.children).indexOf(cell);
+                return { rowIndex, colIndex };
+            });
+            
+            const selectedCols = new Set();
+            selectedCells.forEach(cell => {
+                selectedCols.add(Array.from(cell.parentElement.children).indexOf(cell));
+            });
+
+            const colCount = rows[0].children.length;
+            const newColIndex = direction === 'left' ? Math.min(...selectedCols) : Math.max(...selectedCols) + 1;
+
+            // 清除所有单元格的选中状态
+            document.querySelectorAll('.selected').forEach(c => c.classList.remove('selected'));
+            selectedCells.clear();
+
+            // 插入表头
+            const newHeader = document.createElement('th');
+            newHeader.contentEditable = true;
+            newHeader.textContent = `列${colCount + 1}`;
+            rows[0].insertBefore(newHeader, rows[0].children[newColIndex]);
+
+            // 插入数据单元格
+            for (let i = 1; i < rows.length; i++) {
+                const newCell = document.createElement('td');
+                newCell.contentEditable = true;
+                rows[i].insertBefore(newCell, rows[i].children[newColIndex]);
+            }
+
+            // 将焦点移动到新插入列的对应行位置
+            if (selectedCellIndices.length > 0) {
+                const { rowIndex } = selectedCellIndices[0];
+                const targetCell = rows[rowIndex].children[newColIndex];
+                if (targetCell) {
+                    targetCell.classList.add('selected');
+                    selectedCells.add(targetCell);
+                    targetCell.focus();
+                }
+            }
+
+            // 更新表格监听器和主题
+            updateTableListeners();
+            updateTheme();
+
+            // 确保所有单元格的边框状态正确
+            document.querySelectorAll('td, th').forEach(cell => {
+                if (!selectedCells.has(cell)) {
+                    cell.classList.remove('selected');
+                }
+            });
+        }
+
+        // 删除选中的行
+        function deleteSelectedRows() {
+            if (selectedCells.size === 0) return;
+            
+            saveTableState();
+            const table = document.getElementById('mainTable');
+            const tbody = table.getElementsByTagName('tbody')[0];
+            const rows = tbody.getElementsByTagName('tr');
+            
+            const selectedRows = new Set();
+            selectedCells.forEach(cell => {
+                if (cell.tagName === 'TD') {
+                    const row = cell.parentElement;
+                    selectedRows.add(row);
+                }
+            });
+
+            const rowsToDelete = Array.from(selectedRows);
+            rowsToDelete.forEach(row => {
+                tbody.removeChild(row);
+            });
+
+            updateTableListeners();
+            updateTheme();
+        }
+
+        // 删除选中的列
+        function deleteSelectedColumns() {
+            if (selectedCells.size === 0) return;
+            
+            saveTableState();
+            const table = document.getElementById('mainTable');
+            const rows = table.getElementsByTagName('tr');
+            
+            const selectedCols = new Set();
+            selectedCells.forEach(cell => {
+                selectedCols.add(Array.from(cell.parentElement.children).indexOf(cell));
+            });
+
+            const colsToDelete = Array.from(selectedCols).sort((a, b) => b - a);
+            colsToDelete.forEach(colIndex => {
+                for (let i = 0; i < rows.length; i++) {
+                    rows[i].removeChild(rows[i].children[colIndex]);
+                }
+            });
+
+            updateTableListeners();
+            updateTheme();
+        }
+
+        // 保存表格
+        function saveTable() {
+            const table = document.getElementById('mainTable');
+            const tableHtml = table.outerHTML.replace(/\s+/g, ' ').trim();
+            
+            // 保存到table.txt
+            const blob = new Blob([tableHtml], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'table.txt';
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        // 从文本载入表格
+        function loadTableFromText() {
+            const content = document.getElementById('tableContent').value;
+            if (!content) return;
+
+            const table = document.getElementById('mainTable');
+            table.innerHTML = content;
+            updateTableListeners();
+            updateTheme();
+        }
+
+        // 移动行
+        function moveRow(direction) {
+            if (selectedCells.size === 0) return;
+            
+            saveTableState();
+            const table = document.getElementById('mainTable');
+            const tbody = table.getElementsByTagName('tbody')[0];
+            const rows = tbody.getElementsByTagName('tr');
+            
+            // 获取选中的行
+            const selectedRows = new Set();
+            selectedCells.forEach(cell => {
+                if (cell.tagName === 'TD') {
+                    selectedRows.add(cell.parentElement);
+                }
+            });
+
+            if (selectedRows.size === 0) return;
+
+            const rowsToMove = Array.from(selectedRows);
+            if (direction === 'up') {
+                // 从下往上移动，避免索引变化
+                for (let i = 0; i < rowsToMove.length; i++) {
+                    const row = rowsToMove[i];
+                    const prevRow = row.previousElementSibling;
+                    if (prevRow && prevRow.tagName === 'TR') {
+                        tbody.insertBefore(row, prevRow);
+                    }
+                }
+            } else {
+                // 从上往下移动，避免索引变化
+                for (let i = rowsToMove.length - 1; i >= 0; i--) {
+                    const row = rowsToMove[i];
+                    const nextRow = row.nextElementSibling;
+                    if (nextRow && nextRow.tagName === 'TR') {
+                        tbody.insertBefore(row, nextRow.nextElementSibling);
+                    }
+                }
+            }
+
+            updateTableListeners();
+            updateTheme();
+        }
+
+        // 移动列
+        function moveColumn(direction) {
+            if (selectedCells.size === 0) return;
+            
+            saveTableState();
+            const table = document.getElementById('mainTable');
+            const rows = table.getElementsByTagName('tr');
+            
+            // 获取选中的列索引
+            const selectedCols = new Set();
+            selectedCells.forEach(cell => {
+                selectedCols.add(Array.from(cell.parentElement.children).indexOf(cell));
+            });
+
+            if (selectedCols.size === 0) return;
+
+            const colsToMove = Array.from(selectedCols);
+            if (direction === 'left') {
+                // 从右往左移动，避免索引变化
+                for (let i = 0; i < colsToMove.length; i++) {
+                    const colIndex = colsToMove[i];
+                    if (colIndex > 0) {
+                        for (let row of rows) {
+                            const cell = row.children[colIndex];
+                            row.insertBefore(cell, row.children[colIndex - 1]);
+                        }
+                    }
+                }
+            } else {
+                // 从左往右移动，避免索引变化
+                for (let i = colsToMove.length - 1; i >= 0; i--) {
+                    const colIndex = colsToMove[i];
+                    if (colIndex < rows[0].children.length - 1) {
+                        for (let row of rows) {
+                            const cell = row.children[colIndex];
+                            row.insertBefore(cell, row.children[colIndex + 2]);
+                        }
+                    }
+                }
+            }
+
+            updateTableListeners();
+            updateTheme();
+        }
+
+        // 添加键盘快捷键监听
+        document.addEventListener('keydown', (e) => {
+            // 检查是否有选中的单元格
+            if (selectedCells.size === 0) return;
+
+            // 取消编辑的快捷键
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                // 移除编辑状态但保留焦点和选中状态
+                const activeElement = document.activeElement;
+                if (activeElement && activeElement.matches('td, th')) {
+                    // 保存当前内容
+                    const content = activeElement.innerHTML;
+                    // 移除 contenteditable 属性
+                    activeElement.removeAttribute('contenteditable');
+                    // 重新设置内容
+                    activeElement.innerHTML = content;
+                    // 重新添加 contenteditable 属性
+                    activeElement.setAttribute('contenteditable', 'true');
+                    // 移除焦点
+                    activeElement.blur();
+                    // 重新获得焦点
+                    setTimeout(() => {
+                        activeElement.focus();
+                        // 将光标移动到内容末尾
+                        const range = document.createRange();
+                        const sel = window.getSelection();
+                        range.selectNodeContents(activeElement);
+                        range.collapse(false);
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                    }, 0);
+                }
+                return;
+            }
+
+            // 方向键移动单元格
+            if (!e.ctrlKey && !e.altKey) {
+                switch (e.key) {
+                    case 'ArrowUp':
+                    case 'ArrowDown':
+                    case 'ArrowLeft':
+                    case 'ArrowRight':
+                        if (!e.shiftKey) {
+                            e.preventDefault();
+                            moveCellFocus(e.key);
+                            return;
+                        }
+                        break;
+                    case 'Tab':
+                        e.preventDefault();
+                        // 如果按住 Shift，则向左移动，否则向右移动
+                        const direction = e.shiftKey ? 'ArrowLeft' : 'ArrowRight';
+                        const currentCell = document.activeElement;
+                        if (!currentCell || !currentCell.matches('td, th')) return;
+
+                        const currentRow = currentCell.parentElement;
+                        const currentRowIndex = currentRow.rowIndex;
+                        const currentColIndex = Array.from(currentRow.children).indexOf(currentCell);
+                        const table = document.getElementById('mainTable');
+                        const rows = table.getElementsByTagName('tr');
+                        
+                        if (e.shiftKey && currentColIndex === 0) {
+                            // 如果是第一列，跳转到上一行的最后一列
+                            if (currentRowIndex > 0) {
+                                const prevRow = rows[currentRowIndex - 1];
+                                const lastCell = prevRow.children[prevRow.children.length - 1];
+                                selectAndFocusCell(lastCell);
+                            }
+                        } else if (!e.shiftKey && currentColIndex === currentRow.children.length - 1) {
+                            // 如果是最后一列，跳转到下一行的第一列
+                            if (currentRowIndex < rows.length - 1) {
+                                const nextRow = rows[currentRowIndex + 1];
+                                const firstCell = nextRow.children[0];
+                                selectAndFocusCell(firstCell);
+                            }
+                        } else {
+                            // 正常移动到下一个/上一个单元格
+                            moveCellFocus(direction);
+                        }
+                        return;
+                }
+            }
+
+            // 插入行/列的快捷键
+            if (e.shiftKey) {
+                switch (e.key) {
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        insertRow('up');
+                        break;
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        insertRow('down');
+                        break;
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        insertColumn('left');
+                        break;
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        insertColumn('right');
+                        break;
+                }
+            }
+            // 移动行/列的快捷键
+            else if (e.altKey) {
+                switch (e.key) {
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        moveRow('up');
+                        break;
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        moveRow('down');
+                        break;
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        moveColumn('left');
+                        break;
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        moveColumn('right');
+                        break;
+                }
+            }
+            // 撤销、还原、保存的快捷键
+            else if (e.ctrlKey) {
+                switch (e.key.toLowerCase()) {
+                    case 'z':
+                        if (!e.shiftKey) {
+                            e.preventDefault();
+                            undo();
+                        }
+                        break;
+                    case 'y':
+                        e.preventDefault();
+                        redo();
+                        break;
+                    case 's':
+                        e.preventDefault();
+                        saveTable();
+                        break;
+                }
+            }
+            // 删除行/列的快捷键
+            else {
+                switch (e.key) {
+                    case 'Backspace':
+                        e.preventDefault();
+                        deleteSelectedRows();
+                        break;
+                    case 'Delete':
+                        e.preventDefault();
+                        deleteSelectedColumns();
+                        break;
+                }
+            }
+        });
+
+        // 移动单元格焦点
+        function moveCellFocus(direction) {
+            const table = document.getElementById('mainTable');
+            const rows = table.getElementsByTagName('tr');
+            const currentCell = document.activeElement;
+            
+            if (!currentCell || !currentCell.matches('td, th')) return;
+
+            const currentRow = currentCell.parentElement;
+            const currentRowIndex = currentRow.rowIndex;
+            const currentColIndex = Array.from(currentRow.children).indexOf(currentCell);
+            
+            let targetRow, targetCol;
+            
+            switch (direction) {
+                case 'ArrowUp':
+                    targetRow = rows[currentRowIndex - 1];
+                    targetCol = currentColIndex;
+                    break;
+                case 'ArrowDown':
+                    targetRow = rows[currentRowIndex + 1];
+                    targetCol = currentColIndex;
+                    break;
+                case 'ArrowLeft':
+                    targetRow = currentRow;
+                    targetCol = currentColIndex - 1;
+                    break;
+                case 'ArrowRight':
+                    targetRow = currentRow;
+                    targetCol = currentColIndex + 1;
+                    break;
+            }
+
+            if (targetRow && targetRow.children[targetCol]) {
+                const targetCell = targetRow.children[targetCol];
+                // 清除所有选中状态
+                document.querySelectorAll('.selected').forEach(c => c.classList.remove('selected'));
+                selectedCells.clear();
+                // 选中并聚焦目标单元格
+                targetCell.classList.add('selected');
+                selectedCells.add(targetCell);
+                targetCell.focus();
+            }
+        }
+
+        // 选中并聚焦单元格的辅助函数
+        function selectAndFocusCell(cell) {
+            // 清除所有选中状态
+            document.querySelectorAll('.selected').forEach(c => c.classList.remove('selected'));
+            selectedCells.clear();
+            // 选中并聚焦目标单元格
+            cell.classList.add('selected');
+            selectedCells.add(cell);
+            cell.focus();
+        }
+
+        // 初始化表格监听器
+        updateTableListeners();
+    </script>
+</body>
+</html> 
