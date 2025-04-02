@@ -51,9 +51,10 @@
             border-radius: 8px;
         }
         .button-grid {
-            display: flex;
-            flex-direction: column;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
             gap: 10px;
+            margin-bottom: 20px;
         }
         .button-grid button {
             padding: 8px 16px;
@@ -64,10 +65,13 @@
             cursor: pointer;
             transition: all 0.3s ease;
             position: relative;
+            text-align: left;
+            width: 100%;
         }
         .button-grid button:hover {
             background-color: #e0e0e0;
             transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         .button-grid button:active {
             transform: translateY(0);
@@ -78,14 +82,24 @@
             right: 8px;
             top: 50%;
             transform: translateY(-50%);
-            background-color: rgba(0, 0, 0, 0.1);
-            padding: 2px 6px;
-            border-radius: 3px;
+            background-color: #2c3e50;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
             font-size: 0.8em;
-            color: #666;
+            font-weight: 500;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            transition: all 0.2s ease;
         }
         .button-grid button:hover .shortcut {
             display: inline-block;
+            opacity: 1;
+        }
+        .button-grid button .shortcut::before {
+            content: '⌨';
+            margin-right: 4px;
+            font-size: 0.9em;
         }
         .table-container {
             flex: 1;
@@ -191,19 +205,19 @@
         </div>
         <div class="button-section">
             <div class="button-grid">
-                <button onclick="insertRow('up')" title="Shift+↑">向 ⬆️ 插入行<span class="shortcut">Shift+↑</span></button>
-                <button onclick="insertRow('down')" title="Shift+↓">向 ⬇️ 插入行<span class="shortcut">Shift+↓</span></button>
-                <button onclick="insertColumn('left')" title="Shift+←">向 ⬅️ 插入列<span class="shortcut">Shift+←</span></button>
-                <button onclick="insertColumn('right')" title="Shift+→">向 ➡️ 插入列<span class="shortcut">Shift+→</span></button>
-                <button onclick="moveRow('up')" title="Alt+↑">向 ⬆️ 上移行<span class="shortcut">Alt+↑</span></button>
-                <button onclick="moveRow('down')" title="Alt+↓">向 ⬇️ 下移行<span class="shortcut">Alt+↓</span></button>
-                <button onclick="moveColumn('left')" title="Alt+←">向 ⬅️ 左移列<span class="shortcut">Alt+←</span></button>
-                <button onclick="moveColumn('right')" title="Alt+→">向 ➡️ 右移列<span class="shortcut">Alt+→</span></button>
-                <button onclick="deleteSelectedRows()" title="Shift+Delete">❌️ 删除行<span class="shortcut">Shift+Delete</span></button>
-                <button onclick="deleteSelectedColumns()" title="Delete">❌️ 删除列<span class="shortcut">Delete</span></button>
-                <button onclick="undo()" title="Ctrl+Z">↩️ 撤销<span class="shortcut">Ctrl+Z</span></button>
-                <button onclick="redo()" title="Ctrl+Y">↪️ 重做<span class="shortcut">Ctrl+Y</span></button>
-                <button onclick="saveTable()" title="Ctrl+S">💾 保存<span class="shortcut">Ctrl+S</span></button>
+                <button onclick="insertRow('up')">向 ⬆️ 插入行<span class="shortcut">Shift+↑</span></button>
+                <button onclick="insertRow('down')">向 ⬇️ 插入行<span class="shortcut">Shift+↓</span></button>
+                <button onclick="insertColumn('left')">向 ⬅️ 插入列<span class="shortcut">Shift+←</span></button>
+                <button onclick="insertColumn('right')">向 ➡️ 插入列<span class="shortcut">Shift+→</span></button>
+                <button onclick="moveRow('up')">向 ⬆️ 上移行<span class="shortcut">Alt+↑</span></button>
+                <button onclick="moveRow('down')">向 ⬇️ 下移行<span class="shortcut">Alt+↓</span></button>
+                <button onclick="moveColumn('left')">向 ⬅️ 左移列<span class="shortcut">Alt+←</span></button>
+                <button onclick="moveColumn('right')">向 ➡️ 右移列<span class="shortcut">Alt+→</span></button>
+                <button onclick="deleteSelectedRows()">❌️ 删除行<span class="shortcut">Shift+Delete</span></button>
+                <button onclick="deleteSelectedColumns()">❌️ 删除列<span class="shortcut">Delete</span></button>
+                <button onclick="undo()">↩️ 撤销<span class="shortcut">Ctrl+Z</span></button>
+                <button onclick="redo()">↪️ 重做<span class="shortcut">Ctrl+Y</span></button>
+                <button onclick="saveTable()">💾 保存<span class="shortcut">Ctrl+S</span></button>
             </div>
         </div>
         <div class="load-section">
