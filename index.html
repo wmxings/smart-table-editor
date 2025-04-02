@@ -665,18 +665,47 @@
             const tbody = table.getElementsByTagName('tbody')[0];
             const rows = tbody.getElementsByTagName('tr');
             
+            // 保存当前选中的单元格位置
+            const selectedCellIndices = Array.from(selectedCells).map(cell => {
+                const row = cell.parentElement;
+                const rowIndex = row.rowIndex;
+                const colIndex = Array.from(row.children).indexOf(cell);
+                return { rowIndex, colIndex };
+            });
+
+            // 获取选中的行索引（需要减去1来调整表头的影响）
             const selectedRows = new Set();
             selectedCells.forEach(cell => {
                 if (cell.tagName === 'TD') {
-                    const row = cell.parentElement;
-                    selectedRows.add(row);
+                    selectedRows.add(cell.parentElement.rowIndex - 1);
                 }
             });
 
-            const rowsToDelete = Array.from(selectedRows);
-            rowsToDelete.forEach(row => {
-                tbody.removeChild(row);
+            if (selectedRows.size === 0) return;
+
+            // 从后向前删除，避免索引变化
+            const rowsToDelete = Array.from(selectedRows).sort((a, b) => b - a);
+            rowsToDelete.forEach(rowIndex => {
+                const row = rows[rowIndex];
+                if (row) {
+                    tbody.removeChild(row);
+                }
             });
+
+            // 恢复选中状态
+            if (selectedCellIndices.length > 0) {
+                const { colIndex } = selectedCellIndices[0];
+                const targetRowIndex = Math.min(rowsToDelete[0], rows.length - 1);
+                const targetRow = rows[targetRowIndex];
+                if (targetRow) {
+                    const targetCell = targetRow.cells[colIndex];
+                    if (targetCell) {
+                        targetCell.classList.add('selected');
+                        selectedCells.add(targetCell);
+                        targetCell.focus();
+                    }
+                }
+            }
 
             updateTableListeners();
             updateTheme();
@@ -690,20 +719,75 @@
             const table = document.getElementById('mainTable');
             const rows = table.getElementsByTagName('tr');
             
+            // 保存当前选中的单元格位置
+            const selectedCellIndices = Array.from(selectedCells).map(cell => {
+                const row = cell.parentElement;
+                const rowIndex = row.rowIndex;
+                const colIndex = Array.from(row.children).indexOf(cell);
+                return { rowIndex, colIndex };
+            });
+            
+            // 获取选中的列索引
             const selectedCols = new Set();
             selectedCells.forEach(cell => {
                 selectedCols.add(Array.from(cell.parentElement.children).indexOf(cell));
             });
 
+            if (selectedCols.size === 0) return;
+
+            // 从后向前删除，避免索引变化
             const colsToDelete = Array.from(selectedCols).sort((a, b) => b - a);
             colsToDelete.forEach(colIndex => {
-                for (let i = 0; i < rows.length; i++) {
-                    rows[i].removeChild(rows[i].children[colIndex]);
+                for (let i = rows.length - 1; i >= 0; i--) {
+                    const row = rows[i];
+                    const cell = row.cells[colIndex];
+                    if (cell) {
+                        row.removeChild(cell);
+                    }
                 }
             });
 
+            // 恢复选中状态
+            if (selectedCellIndices.length > 0) {
+                const { rowIndex, colIndex } = selectedCellIndices[0];
+                const targetRow = rows[rowIndex];
+                if (targetRow) {
+                    // 计算新的列索引
+                    let newColIndex = colIndex;
+                    // 计算被删除的列数
+                    const deletedColsBefore = colsToDelete.filter(col => col < colIndex).length;
+                    newColIndex -= deletedColsBefore;
+                    
+                    // 如果目标列不存在，则选择前一列
+                    if (newColIndex >= targetRow.cells.length) {
+                        newColIndex = targetRow.cells.length - 1;
+                    }
+
+                    const targetCell = targetRow.cells[newColIndex];
+                    if (targetCell) {
+                        // 确保单元格可编辑
+                        targetCell.setAttribute('contenteditable', 'true');
+                        // 清除所有选中状态
+                        document.querySelectorAll('.selected').forEach(c => c.classList.remove('selected'));
+                        selectedCells.clear();
+                        // 添加新的选中状态
+                        targetCell.classList.add('selected');
+                        selectedCells.add(targetCell);
+                        targetCell.focus();
+                    }
+                }
+            }
+
+            // 更新表格监听器和主题
             updateTableListeners();
             updateTheme();
+
+            // 确保所有单元格的边框状态正确
+            document.querySelectorAll('td, th').forEach(cell => {
+                if (!selectedCells.has(cell)) {
+                    cell.classList.remove('selected');
+                }
+            });
         }
 
         // 保存表格
