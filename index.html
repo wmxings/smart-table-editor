@@ -793,9 +793,71 @@
         // 保存表格
         function saveTable() {
             const table = document.getElementById('mainTable');
-            const tableHtml = table.outerHTML.replace(/\s+/g, ' ').trim();
+            const tableClone = table.cloneNode(true);
+            
+            // 获取当前主题颜色
+            const themeColor = getComputedStyle(document.documentElement).getPropertyValue('--theme-color').trim();
+            const themeRowColor = getComputedStyle(document.documentElement).getPropertyValue('--theme-row-color').trim();
+            
+            // 设置表格样式
+            tableClone.style.borderCollapse = 'collapse';
+            tableClone.style.width = '100%';
+            tableClone.style.margin = '0';
+            
+            // 设置表头样式
+            const thead = tableClone.querySelector('thead');
+            thead.style.position = 'sticky';
+            thead.style.top = '0';
+            thead.style.zIndex = '1';
+            thead.style.backgroundColor = 'white';
+            
+            // 设置表头单元格样式
+            const headerCells = tableClone.querySelectorAll('th');
+            headerCells.forEach(cell => {
+                cell.style.backgroundColor = themeColor;
+                cell.style.color = 'white';
+                cell.style.padding = '12px';
+                cell.style.textAlign = 'left';
+                cell.style.border = '1px solid #ddd';
+                cell.style.fontWeight = 'bold';
+                cell.style.position = 'sticky';
+                cell.style.top = '0';
+                cell.style.zIndex = '2';
+                cell.style.height = '32px';
+                cell.style.lineHeight = '20px';
+            });
+            
+            // 设置数据单元格样式
+            const dataCells = tableClone.querySelectorAll('td');
+            dataCells.forEach(cell => {
+                cell.style.padding = '4px 8px';
+                cell.style.border = '1px solid #ddd';
+                cell.style.height = '32px';
+                cell.style.lineHeight = '20px';
+            });
+            
+            // 设置行样式
+            const rows = tableClone.querySelectorAll('tr');
+            rows.forEach((row, index) => {
+                if (index > 0) { // 跳过表头行
+                    row.style.backgroundColor = index % 2 === 0 ? 'white' : themeRowColor;
+                }
+            });
+            
+            // 移除所有类名和指定的属性
+            tableClone.querySelectorAll('*').forEach(element => {
+                element.removeAttribute('class');
+                element.removeAttribute('contenteditable');
+                element.style.removeProperty('min-width');
+                element.style.removeProperty('font-size');
+                element.style.removeProperty('vertical-align');
+                element.style.removeProperty('white-space');
+                element.style.removeProperty('position');
+                element.style.removeProperty('box-sizing');
+            });
             
             // 保存到table.txt
+            const tableHtml = tableClone.outerHTML.replace(/\s+/g, ' ').trim();
             const blob = new Blob([tableHtml], { type: 'text/plain' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
