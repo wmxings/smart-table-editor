@@ -265,7 +265,7 @@
             </div>
         </div>
         <div class="load-section">
-            <textarea id="tableContent" placeholder="在此粘贴table.txt的内容..."></textarea>
+            <textarea id="tableText" placeholder="在此粘贴table.txt的内容..."></textarea>
             <button onclick="loadTableFromText()">📂 载入表格</button>
         </div>
     </div>
@@ -364,6 +364,13 @@
             document.documentElement.style.setProperty('--theme-color', colors[currentTheme].header);
             document.documentElement.style.setProperty('--theme-row-color', colors[currentTheme].row);
 
+            // 更新表头样式
+            const headerCells = document.querySelectorAll('th');
+            headerCells.forEach(cell => {
+                cell.style.backgroundColor = colors[currentTheme].header;
+            });
+
+            // 更新数据行样式
             const tbody = document.querySelector('tbody');
             const rows = tbody.getElementsByTagName('tr');
             for (let i = 0; i < rows.length; i++) {
@@ -867,15 +874,224 @@
             window.URL.revokeObjectURL(url);
         }
 
-        // 从文本载入表格
+        // 从文本加载表格
         function loadTableFromText() {
-            const content = document.getElementById('tableContent').value;
-            if (!content) return;
+            const textarea = document.getElementById('tableText');
+            const content = textarea.value.trim();
+            
+            if (!content) {
+                alert('请输入表格内容');
+                return;
+            }
+            
+            try {
+                // 创建临时容器
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = content;
+                
+                // 获取表格元素
+                const table = tempDiv.querySelector('table');
+                if (!table) {
+                    console.error('未找到表格元素，HTML内容:', content);
+                    alert('未找到有效的表格内容，请确保内容包含 <table> 标签');
+                    return;
+                }
 
-            const table = document.getElementById('mainTable');
-            table.innerHTML = content;
-            updateTableListeners();
-            updateTheme();
+                // 创建确认弹窗
+                const confirmDialog = document.createElement('div');
+                confirmDialog.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0, 0, 0, 0.5);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    z-index: 1000;
+                `;
+                confirmDialog.innerHTML = `
+                    <div style="
+                        background: white;
+                        padding: 30px;
+                        border-radius: 12px;
+                        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+                        width: 300px;
+                        text-align: center;
+                    ">
+                        <h3 style="margin: 0 0 20px 0; color: #333;">确认载入表格？</h3>
+                        <p style="margin: 0 0 25px 0; color: #666; font-size: 14px;">载入后将覆盖当前表格内容</p>
+                        <div style="display: flex; justify-content: center; gap: 15px;">
+                            <button onclick="confirmLoadTable()" style="
+                                padding: 8px 24px;
+                                background: #4CAF50;
+                                color: white;
+                                border: none;
+                                border-radius: 6px;
+                                cursor: pointer;
+                                font-size: 14px;
+                                transition: background 0.2s;
+                                width: 120px;
+                                text-align: center;
+                                white-space: nowrap;
+                                overflow: hidden;
+                                text-overflow: ellipsis;
+                            ">确认载入</button>
+                            <button onclick="closeConfirmDialog()" id="cancelBtn" style="
+                                padding: 8px 24px;
+                                background: #f44336;
+                                color: white;
+                                border: none;
+                                border-radius: 6px;
+                                cursor: pointer;
+                                font-size: 14px;
+                                transition: background 0.2s;
+                                width: 120px;
+                                text-align: center;
+                                white-space: nowrap;
+                                overflow: hidden;
+                                text-overflow: ellipsis;
+                            ">取消 (10)</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(confirmDialog);
+
+                // 添加倒计时功能
+                const cancelBtn = document.getElementById('cancelBtn');
+                let countdown = 10;
+                let countdownInterval = setInterval(() => {
+                    countdown--;
+                    cancelBtn.textContent = `取消 (${countdown})`;
+                    if (countdown <= 0) {
+                        clearInterval(countdownInterval);
+                        closeConfirmDialog();
+                    }
+                }, 1000);
+
+                // 保存倒计时引用到全局变量
+                window.confirmDialog = {
+                    element: confirmDialog,
+                    interval: countdownInterval
+                };
+
+                // 保存表格内容到全局变量
+                window.pendingTable = table;
+            } catch (error) {
+                console.error('加载表格失败:', error);
+                console.error('错误详情:', {
+                    message: error.message,
+                    stack: error.stack,
+                    content: content
+                });
+                alert('加载表格失败，请检查表格格式是否正确。错误信息：' + error.message);
+            }
+        }
+
+        // 关闭确认弹窗
+        function closeConfirmDialog() {
+            if (window.confirmDialog) {
+                clearInterval(window.confirmDialog.interval);
+                window.confirmDialog.element.remove();
+                window.confirmDialog = null;
+            }
+        }
+
+        // 确认加载表格
+        function confirmLoadTable() {
+            // 关闭确认弹窗
+            closeConfirmDialog();
+
+            const table = window.pendingTable;
+            if (!table) return;
+
+            try {
+                // 移除所有内联样式
+                table.querySelectorAll('*').forEach(element => {
+                    element.removeAttribute('style');
+                    element.removeAttribute('class');
+                    element.removeAttribute('contenteditable');
+                });
+                
+                // 获取当前主题颜色
+                const themeColor = getComputedStyle(document.documentElement).getPropertyValue('--theme-color').trim();
+                const themeRowColor = getComputedStyle(document.documentElement).getPropertyValue('--theme-row-color').trim();
+                
+                // 设置表格样式
+                table.style.borderCollapse = 'collapse';
+                table.style.width = '100%';
+                table.style.margin = '0';
+                
+                // 设置表头样式
+                const thead = table.querySelector('thead');
+                if (thead) {
+                    thead.style.position = 'sticky';
+                    thead.style.top = '0';
+                    thead.style.zIndex = '1';
+                    thead.style.backgroundColor = 'white';
+                }
+                
+                // 设置表头单元格样式
+                const headerCells = table.querySelectorAll('th');
+                headerCells.forEach(cell => {
+                    cell.style.backgroundColor = themeColor;
+                    cell.style.color = 'white';
+                    cell.style.padding = '12px';
+                    cell.style.textAlign = 'left';
+                    cell.style.border = '1px solid #ddd';
+                    cell.style.fontWeight = 'bold';
+                    cell.style.position = 'sticky';
+                    cell.style.top = '0';
+                    cell.style.zIndex = '2';
+                    cell.style.height = '32px';
+                    cell.style.lineHeight = '20px';
+                    cell.setAttribute('contenteditable', 'true');
+                });
+                
+                // 设置数据单元格样式
+                const dataCells = table.querySelectorAll('td');
+                dataCells.forEach(cell => {
+                    cell.style.padding = '4px 8px';
+                    cell.style.border = '1px solid #ddd';
+                    cell.style.height = '32px';
+                    cell.style.lineHeight = '20px';
+                    cell.setAttribute('contenteditable', 'true');
+                });
+                
+                // 设置行样式
+                const rows = table.querySelectorAll('tr');
+                rows.forEach((row, index) => {
+                    if (index > 0) { // 跳过表头行
+                        row.style.backgroundColor = index % 2 === 0 ? 'white' : themeRowColor;
+                    }
+                });
+                
+                // 替换现有表格
+                const mainTable = document.getElementById('mainTable');
+                if (!mainTable) {
+                    console.error('未找到主表格元素');
+                    alert('页面错误：未找到主表格元素');
+                    return;
+                }
+                
+                mainTable.parentNode.replaceChild(table, mainTable);
+                
+                // 设置表格ID
+                table.id = 'mainTable';
+                
+                // 添加事件监听器
+                updateTableListeners();
+                
+                // 清空文本框
+                document.getElementById('tableText').value = '';
+                
+                // 清除待加载的表格
+                window.pendingTable = null;
+            } catch (error) {
+                console.error('确认加载表格失败:', error);
+                alert('确认加载表格失败，请重试。错误信息：' + error.message);
+            }
         }
 
         // 移动行
