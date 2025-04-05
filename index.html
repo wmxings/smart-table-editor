@@ -227,6 +227,17 @@
             cursor: pointer;
             transition: background-color 0.2s;
         }
+        /* 添加禁用状态的样式 */
+        .button-grid button.disabled {
+            opacity: 0.5;
+            cursor: not-allowed !important;
+            pointer-events: none;
+            background-color: #e0e0e0;
+        }
+        .button-grid button.disabled:hover {
+            transform: none;
+            box-shadow: none;
+        }
     </style>
 </head>
 <body>
@@ -259,8 +270,8 @@
                 <button onclick="moveColumn('right')">向 ➡️ 右移列<span class="shortcut">Alt+→</span></button>
                 <button onclick="deleteSelectedRows()">❌️ 删除行<span class="shortcut">Shift+Delete</span></button>
                 <button onclick="deleteSelectedColumns()">❌️ 删除列<span class="shortcut">Delete</span></button>
-                <button onclick="undo()">↩️ 撤销<span class="shortcut">Ctrl+Z</span></button>
-                <button onclick="redo()">↪️ 重做<span class="shortcut">Ctrl+Y</span></button>
+                <button onclick="undo()" id="undoBtn" class="disabled">↩️ 撤销 (0)<span class="shortcut">Ctrl+Z</span></button>
+                <button onclick="redo()" id="redoBtn" class="disabled">↪️ 重做 (0)<span class="shortcut">Ctrl+Y</span></button>
                 <button onclick="saveTable()">💾 保存<span class="shortcut">Ctrl+S</span></button>
             </div>
         </div>
@@ -450,34 +461,72 @@
             startCell = null;
         });
 
-        // 保存表格状态
+        // 更新按钮状态
+        function updateUndoRedoButtons() {
+            const undoBtn = document.getElementById('undoBtn');
+            const redoBtn = document.getElementById('redoBtn');
+            
+            // 更新撤销按钮状态和次数
+            if (undoStack.length === 0) {
+                undoBtn.classList.add('disabled');
+                undoBtn.innerHTML = `↩️ 撤销 (0)<span class="shortcut">Ctrl+Z</span>`;
+            } else {
+                undoBtn.classList.remove('disabled');
+                undoBtn.innerHTML = `↩️ 撤销 (${undoStack.length})<span class="shortcut">Ctrl+Z</span>`;
+            }
+            
+            // 更新重做按钮状态和次数
+            if (redoStack.length === 0) {
+                redoBtn.classList.add('disabled');
+                redoBtn.innerHTML = `↪️ 重做 (0)<span class="shortcut">Ctrl+Y</span>`;
+            } else {
+                redoBtn.classList.remove('disabled');
+                redoBtn.innerHTML = `↪️ 重做 (${redoStack.length})<span class="shortcut">Ctrl+Y</span>`;
+            }
+        }
+
+        // 修改保存表格状态函数
         function saveTableState() {
             const table = document.getElementById('mainTable');
             undoStack.push(table.innerHTML);
-            redoStack = [];
+            redoStack = []; // 清空重做栈
+            updateUndoRedoButtons(); // 更新按钮状态
         }
 
-        // 撤销
+        // 修改撤销函数
         function undo() {
-            if (undoStack.length > 0) {
-                const table = document.getElementById('mainTable');
-                redoStack.push(table.innerHTML);
-                table.innerHTML = undoStack.pop();
-                updateTableListeners();
-                updateTheme();
+            const undoBtn = document.getElementById('undoBtn');
+            if (undoStack.length === 0 || undoBtn.classList.contains('disabled')) {
+                return;
             }
+
+            const table = document.getElementById('mainTable');
+            redoStack.push(table.innerHTML);
+            table.innerHTML = undoStack.pop();
+            updateTableListeners();
+            updateTheme();
+            updateUndoRedoButtons();
         }
 
-        // 还原
+        // 修改重做函数
         function redo() {
-            if (redoStack.length > 0) {
-                const table = document.getElementById('mainTable');
-                undoStack.push(table.innerHTML);
-                table.innerHTML = redoStack.pop();
-                updateTableListeners();
-                updateTheme();
+            const redoBtn = document.getElementById('redoBtn');
+            if (redoStack.length === 0 || redoBtn.classList.contains('disabled')) {
+                return;
             }
+
+            const table = document.getElementById('mainTable');
+            undoStack.push(table.innerHTML);
+            table.innerHTML = redoStack.pop();
+            updateTableListeners();
+            updateTheme();
+            updateUndoRedoButtons();
         }
+
+        // 在页面加载时初始化按钮状态
+        document.addEventListener('DOMContentLoaded', function() {
+            updateUndoRedoButtons();
+        });
 
         // 更新表格监听器
         function updateTableListeners() {
@@ -1234,10 +1283,32 @@
 
         // 添加键盘快捷键监听
         document.addEventListener('keydown', (e) => {
+            // 撤销、还原、保存的快捷键
+            if (e.ctrlKey) {
+                switch (e.key.toLowerCase()) {
+                    case 'z':
+                        e.preventDefault();
+                        if (e.shiftKey) {
+                            redo(); // Ctrl+Shift+Z 重做
+                        } else {
+                            undo(); // Ctrl+Z 撤销
+                        }
+                        return;
+                    case 'y':
+                        e.preventDefault();
+                        redo(); // Ctrl+Y 重做
+                        return;
+                    case 's':
+                        e.preventDefault();
+                        saveTable(); // Ctrl+S 保存
+                        return;
+                }
+            }
+
             // 检查是否有选中的单元格
             if (selectedCells.size === 0) return;
 
-            // 删除行/列的快捷键（移到最前面）
+            // 删除行/列的快捷键
             if (e.key === 'Delete') {
                 e.preventDefault();
                 if (e.shiftKey) {
@@ -1296,33 +1367,7 @@
                         e.preventDefault();
                         // 如果按住 Shift，则向左移动，否则向右移动
                         const direction = e.shiftKey ? 'ArrowLeft' : 'ArrowRight';
-                        const currentCell = document.activeElement;
-                        if (!currentCell || !currentCell.matches('td, th')) return;
-
-                        const currentRow = currentCell.parentElement;
-                        const currentRowIndex = currentRow.rowIndex;
-                        const currentColIndex = Array.from(currentRow.children).indexOf(currentCell);
-                        const table = document.getElementById('mainTable');
-                        const rows = table.getElementsByTagName('tr');
-                        
-                        if (e.shiftKey && currentColIndex === 0) {
-                            // 如果是第一列，跳转到上一行的最后一列
-                            if (currentRowIndex > 0) {
-                                const prevRow = rows[currentRowIndex - 1];
-                                const lastCell = prevRow.children[prevRow.children.length - 1];
-                                selectAndFocusCell(lastCell);
-                            }
-                        } else if (!e.shiftKey && currentColIndex === currentRow.children.length - 1) {
-                            // 如果是最后一列，跳转到下一行的第一列
-                            if (currentRowIndex < rows.length - 1) {
-                                const nextRow = rows[currentRowIndex + 1];
-                                const firstCell = nextRow.children[0];
-                                selectAndFocusCell(firstCell);
-                            }
-                        } else {
-                            // 正常移动到下一个/上一个单元格
-                            moveCellFocus(direction);
-                        }
+                        moveCellFocus(direction);
                         return;
                 }
             }
@@ -1366,25 +1411,6 @@
                     case 'ArrowRight':
                         e.preventDefault();
                         moveColumn('right');
-                        break;
-                }
-            }
-            // 撤销、还原、保存的快捷键
-            else if (e.ctrlKey) {
-                switch (e.key.toLowerCase()) {
-                    case 'z':
-                        if (!e.shiftKey) {
-                            e.preventDefault();
-                            undo();
-                        }
-                        break;
-                    case 'y':
-                        e.preventDefault();
-                        redo();
-                        break;
-                    case 's':
-                        e.preventDefault();
-                        saveTable();
                         break;
                 }
             }
