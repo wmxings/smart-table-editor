@@ -885,18 +885,67 @@
             }
             
             try {
-                // 创建临时容器
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = content;
+                let table;
                 
-                // 获取表格元素
-                const table = tempDiv.querySelector('table');
-                if (!table) {
-                    console.error('未找到表格元素，HTML内容:', content);
-                    alert('未找到有效的表格内容，请确保内容包含 <table> 标签');
-                    return;
+                // 检查是否为 Markdown 表格格式
+                if (content.includes('|')) {
+                    // 解析 Markdown 表格
+                    const lines = content.split('\n').filter(line => line.trim());
+                    if (lines.length < 3) {
+                        throw new Error('Markdown 表格格式不完整');
+                    }
+                    
+                    // 检查分隔行
+                    const separatorLine = lines[1].trim();
+                    if (!separatorLine.match(/^\|[\s-]+\|[\s-]+\|[\s-]+\|$/)) {
+                        throw new Error('Markdown 表格分隔行格式不正确');
+                    }
+                    
+                    // 创建表格
+                    table = document.createElement('table');
+                    const tbody = document.createElement('tbody');
+                    table.appendChild(tbody);
+                    
+                    // 处理每一行
+                    lines.forEach((line, index) => {
+                        if (index === 1) return; // 跳过分隔行
+                        
+                        // 分割行并保留空单元格，但不过滤空字符串
+                        const cells = line.trim()
+                            .split(/(?<!\\)\|/) // 使用正则表达式分割，不分割转义的 |
+                            .slice(1, -1) // 移除首尾空元素
+                            .map(cell => {
+                                // 处理单元格中的特殊字符
+                                return cell.replace(/\\\|/g, '|').trim();
+                            });
+                        const tr = document.createElement('tr');
+                        
+                        // 获取分隔行中的列数
+                        const columnCount = separatorLine.split('|').slice(1, -1).length;
+                        
+                        // 创建所有单元格，包括空单元格
+                        for (let i = 0; i < columnCount; i++) {
+                            const td = document.createElement(index === 0 ? 'th' : 'td');
+                            // 确保单元格内容正确显示
+                            td.textContent = cells[i] || '';
+                            td.setAttribute('contenteditable', 'true');
+                            tr.appendChild(td);
+                        }
+                        
+                        tbody.appendChild(tr);
+                    });
+                } else if (content.includes('<table')) {
+                    // 处理 HTML 表格
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = content;
+                    table = tempDiv.querySelector('table');
+                    if (!table) {
+                        throw new Error('未找到有效的表格内容');
+                    }
+                } else {
+                    throw new Error('不支持的文件格式，请使用 Markdown 表格或 HTML 表格格式');
                 }
-
+                
                 // 创建确认弹窗
                 const confirmDialog = document.createElement('div');
                 confirmDialog.style.cssText = `
@@ -985,7 +1034,7 @@
                     stack: error.stack,
                     content: content
                 });
-                alert('加载表格失败，请检查表格格式是否正确。错误信息：' + error.message);
+                alert('加载表格失败：' + error.message);
             }
         }
 
